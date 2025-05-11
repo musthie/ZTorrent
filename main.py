@@ -4,7 +4,6 @@ import itertools as it
 from tkinter import filedialog
 import customtkinter
 
-# Bencode encode fonksiyonu
 def encode(obj):
     if isinstance(obj, int):
         return b"i" + str(obj).encode() + b"e"
@@ -21,10 +20,8 @@ def encode(obj):
             return b"d" + b"".join(map(encode, it.chain(*items))) + b"e"
         else:
             raise ValueError("dict keys should be bytes")
-    raise ValueError("Allowed types: int, bytes, list, dict; not %s", type(obj))
+    raise ValueError("Unsupported type: %s" % type(obj))
 
-
-# Bencode decode fonksiyonu
 def decode(s):
     def decode_first(s):
         if s.startswith(b"i"):
@@ -50,46 +47,58 @@ def decode(s):
             return s[start:end], s[end:]
         else:
             raise ValueError("Malformed input.")
-
+    
     if isinstance(s, str):
         s = s.encode("ascii")
-
+    
     ret, rest = decode_first(s)
     if rest:
         raise ValueError("Malformed input.")
     return ret
 
-
-# Dosya seçme fonksiyonu
 def file_select():
     file_way = filedialog.askopenfilename(title="Bir dosya seçin", filetypes=[("Torrent Dosyaları", "*.torrent")])
-
     if file_way:
         try:
             with open(file_way, 'rb') as file:
                 dosya_icerik = file.read()
-
             result = decode(dosya_icerik)
-            print(result)
-
+            name = "?"
+            piece_count = 0
+            total_size = 0
+            if b'info' in result:
+                info = result[b'info']
+                if b'name' in info:
+                    name = info[b'name'].decode('utf-8')
+                if b'pieces' in info:
+                    piece_count = len(info[b'pieces']) // 20
+                if b'length' in info:
+                    total_size = info[b'length']
+                if b'files' in info:
+                    total_size = 0
+                    for f in info[b'files']:
+                        total_size += f[b'length']
+            label3.configure(
+                text=f"Dosya İsmi: {name}\nDosya sayısı: {piece_count}\nToplam Boyut: {total_size} bayt"
+            )
+            label3.pack(pady=10, anchor="w")
         except Exception as e:
-            print(f"Hata: {e}")
+            label3.configure(text=f"Hata: {e}")
+            label3.pack(pady=10, anchor="w")
 
-
-# Uygulama arayüzü
 app = customtkinter.CTk()
 app.geometry("600x400")
 app.title("ZiyTorrent")
 
-# Başlıklar
-label1 = customtkinter.CTkLabel(app, text="ZiyTorrent", font=("Comic Sans MS", 25))
+label1 = customtkinter.CTkLabel(app, text="ZTorrent", font=("Comic Sans MS", 25))
 label1.pack(pady=10, anchor="w")
 
 label2 = customtkinter.CTkLabel(app, text="Datanızı Çalıyoruz", font=("Comic Sans MS", 20))
 label2.pack(pady=10, anchor="w")
 
-# Buton
 button_dosya_sec = customtkinter.CTkButton(app, text="Dosya Seç", command=file_select)
-button_dosya_sec.pack(pady=20)
+button_dosya_sec.pack(pady=20, anchor="w")
+
+label3 = customtkinter.CTkLabel(app, text="", font=("Comic Sans MS", 18))
 
 app.mainloop()
